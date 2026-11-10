@@ -1,0 +1,172 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gestión Tecnológica UTS | Project Control</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:system-ui,sans-serif;background:#0a1226;color:#e2e8f0}
+.card{background:#14213d;border:1px solid #1f3a66;border-radius:14px;padding:16px}
+.btn{background:#2563eb;color:#fff;border-radius:8px;padding:5px 11px;font-size:12px;transition:.2s}.btn:hover{background:#3b82f6}
+.b2{background:#1e3a5f}.b2:hover{background:#2c5282}.bd{background:#b91c1c}.bd:hover{background:#dc2626}
+input,select,textarea{background:#0b1730;border:1px solid #2a4a7a;border-radius:8px;padding:6px 8px;width:100%;color:#fff;font-size:13px}
+th{text-align:left;color:#7dd3fc;font-size:12px;padding:6px}td{padding:6px;border-top:1px solid #1f3a66;font-size:13px;vertical-align:top}
+.fade{animation:f .3s}@keyframes f{from{opacity:0;transform:translateY(6px)}}
+.nv{display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;font-size:14px}.nv:hover,.nv.on{background:#1d4ed8}
+</style></head>
+<body class="min-h-screen md:flex">
+<aside id="sb" class="hidden md:block w-full md:w-60 bg-[#0b1730] border-r border-slate-700 p-3 shrink-0">
+<div class="font-bold text-sky-300 mb-1">GESTIÓN TECNOLÓGICA UTS</div><div class="text-xs mb-4 text-slate-400">PROJECT CONTROL</div>
+<div id="nav" class="space-y-1"></div>
+<button class="btn bd w-full mt-6" onclick="resetAll()">Restablecer datos originales</button></aside>
+<div class="flex-1 min-w-0"><header id="hd" class="flex flex-wrap items-center gap-3 p-3 bg-[#0b1730] border-b border-slate-700 relative"></header>
+<main id="main" class="p-4 fade"></main></div><div id="modal" class="hidden"></div>
+<script>
+const $=id=>document.getElementById(id),E=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KEY='uts_pc_v1',C={Crítico:'#ef4444',Alto:'#f97316',Medio:'#eab308',Bajo:'#22c55e'};
+const D0=()=>({owner:'Equipo del proyecto',cw:2,
+resp:[{n:'Área de TI',a:'Tecnología'},{n:'Área de TI/seguridad',a:'Seguridad de la información'},{n:'Equipo del proyecto',a:'Gestión del proyecto'}],
+risks:[
+{id:'R1',n:'Vulnerabilidades de seguridad',p:4,i:5,rp:2,ri:5,r:'Área de TI/seguridad',t:'Análisis de vulnerabilidades, registro de hallazgos y seguimiento.',s:'Abierto'},
+{id:'R2',n:'Controles de seguridad insuficientes',p:4,i:5,rp:2,ri:5,r:'Área de TI/seguridad',t:'Matriz de controles, responsables, estado y evidencias.',s:'Abierto'},
+{id:'R3',n:'Falta de respuesta ante eventos de seguridad',p:3,i:5,rp:2,ri:5,r:'Área de TI/seguridad',t:'Configuración de alertas, mecanismos de registro, seguimiento y respuesta.',s:'Abierto'},
+{id:'R4',n:'Respaldos de información insuficientes',p:3,i:5,rp:3,ri:3,r:'Área de TI',t:'Respaldos de información crítica y pruebas de recuperación.',s:'Abierto'},
+{id:'R5',n:'Información insuficiente para el seguimiento',p:3,i:4,rp:2,ri:4,r:'Área de TI/seguridad',t:'Reportes periódicos sobre vulnerabilidades, controles e incidentes.',s:'Abierto'}],
+acts:[
+{id:1,n:'Revisar alcance, activos de información y partes interesadas',s:1,e:1,r:'Equipo del proyecto',p:100,d:[]},
+{id:2,n:'Diagnóstico inicial de vulnerabilidades, controles y necesidades',s:1,e:2,r:'Área de TI/seguridad',p:50,d:[1]},
+{id:3,n:'Definir matriz de controles, responsables, estados y evidencias',s:2,e:3,r:'Área de TI/seguridad',p:0,d:[2]},
+{id:4,n:'Configurar alertas, registro, seguimiento y respuesta',s:3,e:4,r:'Área de TI/seguridad',p:0,d:[3]},
+{id:5,n:'Respaldos de información crítica y pruebas de recuperación',s:4,e:5,r:'Área de TI',p:0,d:[4]},
+{id:6,n:'Definir reportes periódicos de vulnerabilidades, controles e incidentes',s:5,e:6,r:'Área de TI/seguridad',p:0,d:[5]},
+{id:7,n:'Seguimiento a tratamientos y recopilación de evidencias',s:6,e:7,r:'Equipo del proyecto',p:0,d:[6]},
+{id:8,n:'Evaluar resultados, actualizar registro de riesgos y socializar',s:8,e:8,r:'Equipo del proyecto',p:0,d:[7]}],
+log:[],scen:[]});
+let S=JSON.parse(localStorage.getItem(KEY)||'null')||D0(),V='dash',SIMA=[],LAST='';
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S)),lg=m=>{S.log.unshift({t:new Date().toLocaleString('es-CO'),m});S.log=S.log.slice(0,40)};
+const lv=r=>r.p*r.i,cls=v=>v>=20?'Crítico':v>=12?'Alto':v>=6?'Medio':'Bajo';
+const ex=a=>Math.max(0,Math.min(100,Math.round((S.cw-a.s+1)/(a.e-a.s+1)*100)));
+const st=a=>a.p>=100?'Completada':ex(a)-a.p>=20?'Atrasada':a.s>S.cw?'Pendiente':'En ejecución';
+const avg=()=>S.acts.length?Math.round(S.acts.reduce((t,a)=>t+a.p,0)/S.acts.length):0,avgPl=()=>S.acts.length?Math.round(S.acts.reduce((t,a)=>t+ex(a),0)/S.acts.length):0;
+const W=()=>Math.max(8,...S.acts.map(a=>a.e)),rn=()=>S.resp.map(x=>x.n);
+const SC={Optimista:[0,110,80],Realista:[1,100,100],Pesimista:[3,80,130]},REC={Crítico:'Escalar de inmediato, priorizar tratamiento y revisión semanal con el responsable.',Alto:'Asignar tratamiento prioritario y hacer seguimiento semanal.',Medio:'Mantener controles y monitorear periódicamente.',Bajo:'Aceptar y monitorear de forma periódica.'};
+const STC={Completada:'#22c55e','En ejecución':'#38bdf8',Atrasada:'#ef4444',Pendiente:'#94a3b8'};
+const badge=(t,c)=>`<span class="px-2 py-0.5 rounded text-xs font-bold text-black" style="background:${c}">${t}</span>`;
+/* UI helpers */
+function M(h,w){const m=$('modal');if(!h){m.className='hidden';m.innerHTML='';return}m.className='fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50';m.innerHTML=`<div class="card w-full ${w||'max-w-lg'} max-h-[90vh] overflow-auto fade">${h}</div>`}
+function ask(msg,fn){M(`<p class="mb-4">${msg}</p><div class="flex gap-2 justify-end"><button class="btn b2" onclick="M()">Cancelar</button><button class="btn bd" id="yes">Confirmar</button></div>`);$('yes').onclick=()=>{M();fn();render()}}
+function form(title,fs,ok){M(`<h3 class="font-bold mb-3">${title}</h3><div class="space-y-2">${fs.map(f=>`<label class="block text-xs text-sky-300">${f.l}${f.t=='sel'?`<select id="f_${f.k}">${f.o.map(o=>`<option ${o==f.v?'selected':''}>${E(o)}</option>`).join('')}</select>`:f.t=='area'?`<textarea id="f_${f.k}" rows="3">${E(f.v??'')}</textarea>`:`<input id="f_${f.k}" type="${f.t=='num'?'number':'text'}" value="${E(f.v??'')}">`}</label>`).join('')}</div><p id="ferr" class="text-red-400 text-xs mt-2"></p><div class="flex gap-2 justify-end mt-3"><button class="btn b2" onclick="M()">Cancelar</button><button class="btn" id="fok">Guardar</button></div>`);
+$('fok').onclick=()=>{const v={};for(const f of fs){const raw=$('f_'+f.k).value.trim();if(f.t=='num'){const x=Number(raw);if(raw===''||!Number.isInteger(x)||x<f.min||x>f.max)return $('ferr').textContent=`${f.l}: número entero entre ${f.min} y ${f.max}`;v[f.k]=x}else{if(f.req&&!raw)return $('ferr').textContent=`${f.l} es obligatorio`;v[f.k]=raw}}const e=ok(v);if(e)return $('ferr').textContent=e;M();render()}}
+/* gráficas SVG */
+const donut=it=>{const t=it.reduce((a,x)=>a+x.v,0)||1;let o=0;return `<svg viewBox="0 0 100 100" class="w-36 h-36 -rotate-90"><circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" stroke-width="16"/>${it.map(x=>{const l=x.v/t*251.3,s=`<circle cx="50" cy="50" r="40" fill="none" stroke="${x.c}" stroke-width="16" stroke-dasharray="${l} ${251.3-l}" stroke-dashoffset="${-o}"/>`;o+=l;return s}).join('')}</svg>`};
+const ring=v=>`<div class="relative w-36 h-36"><svg viewBox="0 0 100 100" class="-rotate-90"><circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" stroke-width="12"/><circle cx="50" cy="50" r="40" fill="none" stroke="#38bdf8" stroke-width="12" stroke-linecap="round" stroke-dasharray="${v*2.513} 251.3" style="transition:.6s"/></svg><div class="absolute inset-0 flex items-center justify-center text-2xl font-bold">${v}%</div></div>`;
+const bar=(l,v,mx,c)=>`<div class="flex items-center gap-2 text-xs my-1"><span class="w-28 truncate">${l}</span><div class="flex-1 bg-slate-800 rounded h-4"><div class="h-4 rounded" style="width:${mx?Math.min(100,v/mx*100):0}%;background:${c};transition:.5s"></div></div><span class="w-10 text-right">${v}</span></div>`;
+const tbl=(h,r)=>`<div class="overflow-x-auto"><table class="w-full"><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${r.map(x=>`<tr>${x.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table></div>`;
+const alerts=()=>[...S.risks.filter(r=>r.s!='Mitigado'&&cls(lv(r))=='Crítico').map(r=>`Riesgo ${r.id} crítico (nivel ${lv(r)}): ${r.n}`),...S.acts.filter(a=>st(a)=='Atrasada').map(a=>`Actividad ${a.id} atrasada: esperado ${ex(a)}%, real ${a.p}%`)];
+/* header / nav */
+const NAV=[['dash','📊 Resumen ejecutivo'],['risk','⚠️ Gestión de riesgos'],['gantt','📅 Cronograma (Gantt)'],['track','🎯 Seguimiento y control'],['sim','🧪 Simulador de escenarios'],['resp','👥 Responsables'],['rep','📄 Informes']];
+function head(){const al=alerts(),late=S.acts.filter(a=>st(a)=='Atrasada').length,crit=S.risks.filter(r=>r.s!='Mitigado'&&cls(lv(r))=='Crítico').length,es=late>=2?['En riesgo','#ef4444']:late||crit?['Con alertas','#eab308']:['En curso','#22c55e'];
+$('hd').innerHTML=`<button class="md:hidden btn b2" onclick="$('sb').classList.toggle('hidden')">☰</button><div class="flex-1 min-w-[220px]"><div class="font-bold text-sm">Fortalecimiento de la gestión de la seguridad de la información – UTS (ref. PETI 2026)</div><div class="text-xs text-slate-400">${new Date().toLocaleDateString('es-CO',{dateStyle:'full'})} · Seguimiento: ${E(S.owner)} · Semana actual: ${S.cw}</div></div>${badge(es[0],es[1])}<button class="btn b2" onclick="$('np').classList.toggle('hidden')">🔔 ${al.length}</button><button class="btn b2" onclick="cfg()">⚙️ Configuración</button><div id="np" class="hidden absolute right-3 top-14 w-80 card z-40 text-xs space-y-2">${al.length?al.map(x=>`<div>⚠️ ${E(x)}</div>`).join(''):'Sin alertas'}</div>`;
+$('nav').innerHTML=NAV.map(n=>`<button class="nv ${V==n[0]?'on':''}" onclick="go('${n[0]}')">${n[1]}</button>`).join('')}
+const go=v=>{V=v;$('sb').classList.add('hidden','md:block');render()};
+const cfg=()=>form('Configuración',[{k:'o',l:'Responsable del seguimiento',v:S.owner,req:1},{k:'w',l:'Semana actual del proyecto (1-12)',t:'num',min:1,max:12,v:S.cw}],v=>{S.owner=v.o;S.cw=v.w;lg('Configuración actualizada')});
+const resetAll=()=>ask('¿Restablecer todos los datos a los valores originales? Se perderán los cambios.',()=>{S=D0();lg('Datos restablecidos')});
+/* ===== EDICIÓN DIRECTA + DRAG DEL GANTT ===== */
+function ed(id,k,v){const a=S.acts.find(x=>x.id==id);if(k!='r'){v=Math.round(+v)||0;if(k=='p')v=Math.max(0,Math.min(100,v));else v=Math.max(1,Math.min(12,v||1))}
+a[k]=v;if(a.e<a.s){if(k=='s')a.e=a.s;else a.s=a.e}
+lg(`Actividad ${id}: ${{p:'avance',r:'responsable',s:'inicio',e:'fin'}[k]} → ${v}`);render()}
+function livP(v,el){const r=el.closest('.row');r.querySelector('.fill').style.width=v+'%';r.querySelector('.pl').textContent=v+'%';r.querySelector('.pb').textContent=v+'%'}
+function drag(ev,id,mode){ev.preventDefault();ev.stopPropagation();
+const a=S.acts.find(x=>x.id==id),tl=ev.currentTarget.closest('.tl'),bar=ev.currentTarget.closest('.gb'),w=W(),cw=tl.getBoundingClientRect().width/w,x0=ev.clientX,s0=a.s,e0=a.e;let ns=s0,ne=e0;
+const mv=e=>{const d=Math.round((e.clientX-x0)/cw);
+if(mode=='move'){const len=e0-s0;ns=Math.max(1,Math.min(w-len,s0+d));ne=ns+len}else{ns=s0;ne=Math.max(s0,Math.min(w,e0+d))}
+bar.style.left=(ns-1)/w*100+'%';bar.style.width=(ne-ns+1)/w*100+'%';bar.querySelector('.pb').textContent='S'+ns+'–S'+ne};
+const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);
+if(ns!=s0||ne!=e0){a.s=ns;a.e=ne;lg(`Actividad ${id} reprogramada a S${ns}–S${ne}`);render()}};
+addEventListener('pointermove',mv);addEventListener('pointerup',up)}
+/* VISTAS */
+const V_={
+dash(){const R=S.risks,cnt=k=>R.filter(r=>cls(lv(r))==k).length,K=[['Avance del proyecto',avg()+'%'],['Riesgos identificados',R.length],['Riesgos críticos',R.filter(r=>r.s!='Mitigado'&&cls(lv(r))=='Crítico').length],['Riesgos mitigados',R.filter(r=>r.s=='Mitigado').length],['Actividades completadas',S.acts.filter(a=>a.p>=100).length],['Actividades pendientes',S.acts.filter(a=>a.p<100).length]],pri=[...R].filter(r=>r.s!='Mitigado').sort((a,b)=>lv(b)-lv(a)).slice(0,3);
+return `<div class="text-xs bg-amber-900/40 border border-amber-600 rounded p-2 mb-3">Datos de demostración editables basados en el documento del proyecto. No son información institucional real.</div>
+<div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-4">${K.map(k=>`<div class="card"><div class="text-xs text-sky-300">${k[0]}</div><div class="text-3xl font-bold mt-1">${k[1]}</div></div>`).join('')}</div>
+<div class="grid lg:grid-cols-3 gap-4"><div class="card"><h3 class="font-bold mb-2">Distribución de riesgos</h3><div class="flex items-center gap-4">${donut(Object.keys(C).map(k=>({v:cnt(k),c:C[k]})))}<div class="text-xs space-y-1">${Object.keys(C).map(k=>`<div><span style="color:${C[k]}">●</span> ${k}: ${cnt(k)}</div>`).join('')}</div></div></div>
+<div class="card"><h3 class="font-bold mb-2">Riesgos por nivel</h3>${Object.keys(C).map(k=>bar(k,cnt(k),R.length,C[k])).join('')}</div>
+<div class="card flex flex-col items-center"><h3 class="font-bold mb-2">Avance general</h3>${ring(avg())}<div class="text-xs mt-2">Planificado a la semana ${S.cw}: ${avgPl()}%</div></div>
+<div class="card lg:col-span-2"><h3 class="font-bold mb-2">Avance planificado vs real</h3>${S.acts.map(a=>bar('Act. '+a.id+' plan',ex(a),100,'#64748b')+bar('Act. '+a.id+' real',a.p,100,'#38bdf8')).join('')}</div>
+<div class="card"><h3 class="font-bold mb-2">Atención prioritaria</h3>${pri.map(r=>`<div class="text-xs mb-2">${badge(r.id+' · '+lv(r),C[cls(lv(r))])} ${E(r.n)}<br><span class="text-slate-400">${REC[cls(lv(r))]}</span></div>`).join('')||'Sin riesgos abiertos'}<h4 class="font-bold mt-3 mb-1 text-sm">Alertas</h4>${alerts().map(x=>`<div class="text-xs">⚠️ ${E(x)}</div>`).join('')||'<div class="text-xs">Sin alertas</div>'}</div></div>
+<div class="card mt-4"><h3 class="font-bold mb-2">Trazabilidad de cambios</h3><div class="text-xs max-h-40 overflow-auto space-y-1">${S.log.map(l=>`<div><span class="text-sky-300">${l.t}</span> ${E(l.m)}</div>`).join('')||'Sin cambios registrados'}</div></div>`},
+risk(){const heat=()=>{let h='<div class="inline-grid gap-1" style="grid-template-columns:auto repeat(5,56px)">';for(let i=5;i>=1;i--){h+=`<div class="text-xs self-center pr-1">I${i}</div>`;for(let p=1;p<=5;p++){h+=`<div class="h-12 rounded flex items-center justify-center text-[11px] font-bold text-black" style="background:${C[cls(p*i)]}" title="P${p}×I${i}=${p*i}">${S.risks.filter(r=>r.p==p&&r.i==i).map(r=>r.id).join(' ')}</div>`}}return h+'<div></div>'+[1,2,3,4,5].map(p=>`<div class="text-xs text-center">P${p}</div>`).join('')+'</div>'};
+return `<div class="flex flex-wrap gap-2 mb-3"><button class="btn" onclick="riskF()">+ Nuevo riesgo</button><button class="btn b2" onclick="expR()">Exportar a Excel (CSV)</button></div><div class="card mb-4">${tbl(['ID','Descripción','P','I','Nivel','Clasificación','Responsable','Tratamiento','Estado','Acciones'],S.risks.map(r=>[r.id,E(r.n),r.p,r.i,lv(r),badge(cls(lv(r)),C[cls(lv(r))]),E(r.r),E(r.t),r.s,`<div class="flex flex-wrap gap-1"><button class="btn b2" onclick="riskV('${r.id}')">Ver</button><button class="btn b2" onclick="riskF('${r.id}')">Editar</button><button class="btn b2" onclick="treat('${r.id}')">Tratamiento</button><button class="btn" onclick="mit('${r.id}')">Mitigado</button><button class="btn bd" onclick="delR('${r.id}')">Eliminar</button></div>`]))}</div>
+<div class="card"><h3 class="font-bold mb-2">Matriz de calor 5×5 (Probabilidad × Impacto)</h3>${heat()}<div class="flex flex-wrap gap-3 text-xs mt-3">${[['Bajo','1-5'],['Medio','6-11'],['Alto','12-19'],['Crítico','20-25']].map(x=>`<span><span style="color:${C[x[0]]}">■</span> ${x[0]} (${x[1]})</span>`).join('')}</div></div>`},
+gantt(){const w=W(),cs=['','#38bdf8','#818cf8','#34d399','#f59e0b'],cols=`repeat(${w},1fr)`;
+const weeks=Array.from({length:w},(_,i)=>`<div class="text-center ${i+1==S.cw?'text-white font-bold':''}">S${i+1}</div>`).join('');
+const cells=Array.from({length:w},(_,i)=>`<div class="border-l border-slate-700 ${i+1==S.cw?'bg-sky-900/40':''}"></div>`).join('');
+return `<div class="flex flex-wrap gap-2 mb-3 items-center"><button class="btn" onclick="actF()">+ Agregar actividad</button><span class="text-xs text-slate-400">Arrastra la barra para moverla · arrastra el borde derecho para cambiar la duración · usa el deslizador para el avance</span></div>
+<div class="card overflow-x-auto"><div style="min-width:${380+w*70}px">
+<div class="flex text-xs text-sky-300 mb-1"><div style="width:330px" class="shrink-0">Actividad</div><div class="flex-1 grid" style="grid-template-columns:${cols}">${weeks}</div></div>`+
+S.acts.map(a=>{const c=cs[Math.min(a.e-a.s+1,4)],s=st(a),bad=a.d.some(d=>{const x=S.acts.find(y=>y.id==d);return x&&x.e>a.s});
+return `<div class="row flex items-center border-t border-slate-700 py-2">
+<div style="width:330px" class="shrink-0 pr-3 text-xs"><b>${a.id}.</b> ${E(a.n)}
+<div class="flex items-center gap-2 mt-1"><input type="range" min="0" max="100" step="5" value="${a.p}" style="padding:0" oninput="livP(this.value,this)" onchange="ed(${a.id},'p',this.value)"><b class="pl w-10">${a.p}%</b></div>
+<select class="mt-1" onchange="ed(${a.id},'r',this.value)">${rn().map(n=>`<option ${n==a.r?'selected':''}>${E(n)}</option>`).join('')}</select>
+<div class="mt-1" style="color:${STC[s]}">${s}${a.d.length?` <span class="text-slate-400">· depende de: ${a.d.join(', ')}</span>`:''}${bad?' <span class="text-red-400">⚠ inicia antes de que termine su dependencia</span>':''}</div>
+<div class="mt-1 flex gap-1 flex-wrap"><button class="btn b2" onclick="actF(${a.id})">Editar</button><button class="btn" onclick="actC(${a.id})">✔ Completar</button><button class="btn bd" onclick="actD(${a.id})">Eliminar</button></div></div>
+<div class="tl relative flex-1 h-14"><div class="absolute inset-0 grid" style="grid-template-columns:${cols}">${cells}</div>
+<div class="gb absolute top-3 h-8 rounded cursor-grab select-none overflow-hidden" style="left:${(a.s-1)/w*100}%;width:${(a.e-a.s+1)/w*100}%;background:${c}55;border:2px solid ${bad?'#ef4444':c};touch-action:none;transition:left .2s,width .2s" onpointerdown="drag(event,${a.id},'move')">
+<div class="fill absolute inset-y-0 left-0" style="width:${a.p}%;background:${c}"></div>
+<span class="pb relative text-[11px] font-bold px-1 leading-7 text-white">${a.p}%</span>
+<div class="absolute right-0 inset-y-0 w-2 cursor-ew-resize bg-white/70" onpointerdown="drag(event,${a.id},'resize')"></div></div></div></div>`}).join('')+`</div></div>`},
+track(){const c=k=>S.acts.filter(a=>st(a)==k).length,pl=avgPl(),cu=pl?Math.min(100,Math.round(avg()/pl*100)):100;
+return `<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">${['Completada','En ejecución','Atrasada','Pendiente'].map(k=>`<div class="card"><div class="text-xs" style="color:${STC[k]}">${k}s</div><div class="text-3xl font-bold">${c(k)}</div></div>`).join('')}<div class="card"><div class="text-xs text-sky-300">Cumplimiento del cronograma</div><div class="text-3xl font-bold">${cu}%</div><div class="text-xs">Avance ${avg()}% de ${pl}% esperado</div></div></div>
+<div class="card"><div class="flex flex-wrap items-center gap-3 mb-3"><label class="text-xs text-sky-300 flex items-center gap-2">Semana actual<input type="number" min="1" max="12" value="${S.cw}" style="width:70px" onchange="S.cw=Math.max(1,Math.min(12,Math.round(+this.value)||1));lg('Semana actual: '+S.cw);render()"></label><span class="text-xs text-slate-400">Edita inicio, fin, avance y responsable directamente en la tabla. Los indicadores se actualizan al instante.</span></div>`+
+tbl(['Actividad','Inicio (S)','Fin (S)','Esperado','Real %','Responsable','Estado'],S.acts.map(a=>{const s=st(a);return [`${a.id}. ${E(a.n)}`,
+`<input type="number" min="1" max="12" value="${a.s}" style="width:64px" onchange="ed(${a.id},'s',this.value)">`,
+`<input type="number" min="1" max="12" value="${a.e}" style="width:64px" onchange="ed(${a.id},'e',this.value)">`,
+ex(a)+'%',
+`<input type="number" min="0" max="100" value="${a.p}" style="width:72px" onchange="ed(${a.id},'p',this.value)">`,
+`<select onchange="ed(${a.id},'r',this.value)">${rn().map(n=>`<option ${n==a.r?'selected':''}>${E(n)}</option>`).join('')}</select>`,
+badge(s,STC[s])+(s=='Atrasada'?' ⚠️ retraso de '+(ex(a)-a.p)+' pts':'')]}))+`</div>`},
+sim(){if(!S.risks.length||!S.acts.length)return '<div class="card">Se necesitan riesgos y actividades para simular.</div>';
+const ro=S.risks.map(r=>`<option>${r.id}</option>`).join(''),r0=S.risks[0];
+return `<h2 class="font-bold text-lg mb-3">SIMULADOR DE ESCENARIOS DEL PROYECTO</h2><p class="text-xs text-slate-400 mb-3">Las simulaciones no alteran los datos reales salvo que confirmes aplicarlos.</p><div class="grid lg:grid-cols-2 gap-4">
+<div class="card"><h3 class="font-bold mb-2">A · Retraso de actividades</h3><div class="grid grid-cols-2 gap-2"><select id="sa" onchange="simA()">${S.acts.map(a=>`<option value="${a.id}">Act. ${a.id}</option>`).join('')}</select><input id="sw" type="number" min="0" max="8" value="1" oninput="simA()"></div><div id="ra" class="text-xs mt-3"></div></div>
+<div class="card"><h3 class="font-bold mb-2">B · Incremento de riesgos</h3><select id="sbr" onchange="selB()">${ro}</select><div class="grid grid-cols-2 gap-2 mt-2 text-xs">Probabilidad<input id="sbp" type="range" min="1" max="5" value="${r0.p}" oninput="simB()">Impacto<input id="sbi" type="range" min="1" max="5" value="${r0.i}" oninput="simB()"></div><div id="rb" class="text-xs mt-3"></div></div>
+<div class="card"><h3 class="font-bold mb-2">C · Aplicación de tratamientos</h3><select id="scr" onchange="simC()">${ro}</select><div id="rc" class="mt-3"></div></div>
+<div class="card"><h3 class="font-bold mb-2">D · Escenario general</h3><select id="sds" onchange="selD()">${Object.keys(SC).map(k=>`<option ${k=='Realista'?'selected':''}>${k}</option>`).join('')}</select><div class="grid grid-cols-3 gap-2 mt-2 text-xs"><label>Semanas de retraso<input id="sdd" type="number" min="0" max="20"></label><label>Factor avance %<input id="sdf" type="number" min="10" max="150"></label><label>Factor riesgo %<input id="sdr" type="number" min="10" max="300"></label></div><div class="flex flex-wrap gap-2 mt-2"><button class="btn" onclick="simD()">Ejecutar simulación</button><button class="btn b2" onclick="selD()">Restablecer valores</button><button class="btn b2" onclick="cmpD()">Comparar escenarios</button><button class="btn b2" onclick="saveD()">Guardar escenario</button></div><div id="rd" class="mt-3"></div><div class="text-xs mt-2">${S.scen.map(x=>`<div>💾 ${x.n} (${x.t}): ${x.res.dur} sem · ${x.res.av}% · riesgo ${x.res.rk}</div>`).join('')}</div></div></div>`},
+resp(){return `<button class="btn mb-3" onclick="respF()">+ Agregar responsable</button><div class="card">${tbl(['Responsable','Área','Actividades','Riesgos asociados','Estado de tareas','Acciones'],S.resp.map((x,i)=>{const A=S.acts.filter(a=>a.r==x.n),Rk=S.risks.filter(r=>r.r==x.n);return [E(x.n),E(x.a),A.map(a=>a.id).join(', ')||'—',Rk.map(r=>r.id).join(', ')||'—',`${A.filter(a=>a.p>=100).length} completadas · ${A.filter(a=>st(a)=='Atrasada').length} atrasadas · ${A.filter(a=>a.p<100).length} abiertas`,`<button class="btn b2" onclick="respF(${i})">Editar</button> <button class="btn bd" onclick="respD(${i})">Eliminar</button>`]}))}</div>`},
+rep(){return `<div class="card mb-4"><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">${[['Generar informe ejecutivo','repEj()'],['Exportar riesgos a Excel (CSV)','expR()'],['Exportar cronograma a PDF','repCr()'],['Generar resumen de avance','repAv()'],['Informe de tratamientos aplicados','repTr()']].map(b=>`<button class="btn" onclick="${b[1]}">${b[0]}</button>`).join('')}</div></div><div class="card"><h3 class="font-bold mb-2">Trazabilidad</h3><div class="text-xs max-h-60 overflow-auto space-y-1">${S.log.map(l=>`<div><span class="text-sky-300">${l.t}</span> ${E(l.m)}</div>`).join('')||'Sin cambios'}</div></div>`}};
+function render(){save();head();$('main').innerHTML=V_[V]();if(V=='sim'){simA();simB();simC();selD()}}
+/* RIESGOS */
+const rf=r=>[{k:'n',l:'Descripción',v:r.n,req:1},{k:'p',l:'Probabilidad (1-5)',t:'num',min:1,max:5,v:r.p},{k:'i',l:'Impacto (1-5)',t:'num',min:1,max:5,v:r.i},{k:'rp',l:'Probabilidad residual (1-5)',t:'num',min:1,max:5,v:r.rp},{k:'ri',l:'Impacto residual (1-5)',t:'num',min:1,max:5,v:r.ri},{k:'r',l:'Responsable',t:'sel',o:rn(),v:r.r},{k:'t',l:'Tratamiento',t:'area',v:r.t,req:1},{k:'s',l:'Estado',t:'sel',o:['Abierto','En tratamiento','Mitigado'],v:r.s}];
+function riskF(id){const r=S.risks.find(x=>x.id==id)||{n:'',p:3,i:3,rp:2,ri:3,r:rn()[0],t:'',s:'Abierto'};form(id?'Editar riesgo '+id:'Nuevo riesgo',rf(r),v=>{if(id){Object.assign(r,v);lg('Riesgo '+id+' editado')}else{const n='R'+(Math.max(0,...S.risks.map(x=>+x.id.slice(1)))+1);S.risks.push({id:n,...v});lg('Riesgo '+n+' creado')}})}
+const riskV=id=>{const r=S.risks.find(x=>x.id==id);M(`<h3 class="font-bold mb-2">${r.id} · ${E(r.n)}</h3><div class="text-sm space-y-1"><div>Probabilidad × Impacto: ${r.p} × ${r.i} = <b>${lv(r)}</b> ${badge(cls(lv(r)),C[cls(lv(r))])}</div><div>Riesgo residual: ${r.rp} × ${r.ri} = <b>${r.rp*r.ri}</b></div><div>Responsable: ${E(r.r)}</div><div>Estado: ${r.s}</div><div>Tratamiento: ${E(r.t)}</div><div class="text-sky-300">Sugerencia: ${REC[cls(lv(r))]}</div></div><div class="text-right mt-3"><button class="btn" onclick="M()">Cerrar</button></div>`)};
+const treat=id=>{const r=S.risks.find(x=>x.id==id);form('Registrar tratamiento '+id,[{k:'t',l:'Tratamiento',t:'area',v:r.t,req:1}],v=>{r.t=v.t;if(r.s=='Abierto')r.s='En tratamiento';lg('Tratamiento registrado en '+id)})};
+const mit=id=>ask('¿Marcar '+id+' como mitigado?',()=>{S.risks.find(x=>x.id==id).s='Mitigado';lg('Riesgo '+id+' mitigado')});
+const delR=id=>ask('¿Eliminar el riesgo '+id+'?',()=>{S.risks=S.risks.filter(x=>x.id!=id);lg('Riesgo '+id+' eliminado')});
+/* ACTIVIDADES */
+function actF(id){const a=S.acts.find(x=>x.id==id)||{n:'',s:1,e:1,r:rn()[0],p:0,d:[]};form(id?'Editar actividad':'Nueva actividad',[{k:'n',l:'Nombre',v:a.n,req:1},{k:'s',l:'Semana de inicio',t:'num',min:1,max:12,v:a.s},{k:'e',l:'Semana de fin',t:'num',min:1,max:12,v:a.e},{k:'r',l:'Responsable',t:'sel',o:rn(),v:a.r},{k:'p',l:'Avance %',t:'num',min:0,max:100,v:a.p},{k:'d',l:'Dependencias (ids separados por coma)',v:a.d.join(',')}],v=>{if(v.e<v.s)return 'La semana de fin debe ser ≥ a la de inicio';const nid=id||Math.max(0,...S.acts.map(x=>x.id))+1,d=v.d.split(',').map(Number).filter(n=>n&&n!=nid&&S.acts.some(x=>x.id==n));const o={id:nid,n:v.n,s:v.s,e:v.e,r:v.r,p:v.p,d};if(id){Object.assign(a,o);lg('Actividad '+id+' editada')}else{S.acts.push(o);lg('Actividad '+nid+' creada')}})}
+const actC=id=>{S.acts.find(x=>x.id==id).p=100;lg('Actividad '+id+' completada');render()};
+const actD=id=>ask('¿Eliminar la actividad '+id+'?',()=>{S.acts=S.acts.filter(x=>x.id!=id);S.acts.forEach(a=>a.d=a.d.filter(d=>d!=id));lg('Actividad '+id+' eliminada')});
+/* RESPONSABLES */
+function respF(i){const x=S.resp[i]||{n:'',a:''};form(i==null?'Nuevo responsable':'Editar responsable',[{k:'n',l:'Nombre / rol (no usar nombres de funcionarios reales)',v:x.n,req:1},{k:'a',l:'Área',v:x.a,req:1}],v=>{if(S.resp.some((y,j)=>y.n==v.n&&j!=i))return 'Ya existe ese responsable';if(i==null){S.resp.push(v)}else{S.acts.forEach(a=>{if(a.r==x.n)a.r=v.n});S.risks.forEach(r=>{if(r.r==x.n)r.r=v.n});Object.assign(x,v)}lg('Responsable guardado: '+v.n)})}
+const respD=i=>ask('¿Eliminar a '+E(S.resp[i].n)+'? Sus asignaciones quedarán con el nombre actual.',()=>{lg('Responsable eliminado: '+S.resp[i].n);S.resp.splice(i,1)});
+/* SIMULACIONES */
+function simA(){const id=+$('sa').value,w=Math.max(0,+$('sw').value||0),B=S.acts.map(a=>({...a,d:[...a.d]})),aff=new Set([id]);let ch=1;while(ch){ch=0;B.forEach(a=>{if(!aff.has(a.id)&&a.d.some(d=>aff.has(d))){aff.add(a.id);ch=1}})}
+B.forEach(a=>{if(a.id==id)a.e+=w;else if(aff.has(a.id)){a.s+=w;a.e+=w}});const o=Math.max(...S.acts.map(a=>a.e)),n=Math.max(...B.map(a=>a.e));SIMA=B;
+$('ra').innerHTML=`<div>Nueva semana de fin de la actividad: <b>S${B.find(a=>a.id==id).e}</b></div><div>Actividades afectadas: ${B.filter(a=>aff.has(a.id)&&a.id!=id).map(a=>`${a.id} (S${a.s}–S${a.e})`).join(', ')||'ninguna'}</div><div>Retraso acumulado: <b>${n-o} semana(s)</b> · Fin del proyecto: S${o} → S${n}</div><div>Cumplimiento proyectado: <b>${Math.round(o/n*100)}%</b></div><button class="btn mt-2" onclick="ask('¿Aplicar este cambio al cronograma real?',()=>{S.acts=SIMA.map(a=>({...a}));lg('Simulación A aplicada al cronograma')})">Aplicar al cronograma real</button>`}
+function selB(){const r=S.risks.find(x=>x.id==$('sbr').value);$('sbp').value=r.p;$('sbi').value=r.i;simB()}
+function simB(){const r=S.risks.find(x=>x.id==$('sbr').value),p=+$('sbp').value,i=+$('sbi').value,o=lv(r),n=p*i,c=cls(n);$('rb').innerHTML=`<div>P=${p}, I=${i}</div><div>Nivel original: <b>${o}</b> (${cls(o)}) → nuevo: <b>${n}</b> ${badge(c,C[c])}</div><div>Diferencia: <b>${n-o>0?'+':''}${n-o}</b></div><div class="text-sky-300 mt-1">Recomendación: ${REC[c]}</div>`}
+function simC(){const r=S.risks.find(x=>x.id==$('scr').value),a=lv(r),b=r.rp*r.ri;$('rc').innerHTML=`${bar('Riesgo inicial',a,25,C[cls(a)])}${bar('Riesgo residual',b,25,C[cls(b)])}<div class="text-xs mt-2">Reducción: <b>${a-b}</b> puntos · <b>${a?Math.round((a-b)/a*100):0}%</b> · Tratamiento: ${E(r.t)}</div>`}
+const calc=(d,f,r)=>{const b=Math.max(...S.acts.map(a=>a.e));return{dur:b+d,av:Math.min(100,Math.round(100*b/(b+d)*f/100)),rk:Math.round(S.risks.reduce((t,x)=>t+lv(x),0)*r/100)}};
+const dv=()=>[+$('sdd').value||0,+$('sdf').value||100,+$('sdr').value||100];
+function selD(){const v=SC[$('sds').value];$('sdd').value=v[0];$('sdf').value=v[1];$('sdr').value=v[2];simD()}
+function simD(){const x=calc(...dv());$('rd').innerHTML=`${bar('Duración (sem)',x.dur,20,'#38bdf8')}${bar('Avance proyectado %',x.av,100,'#22c55e')}${bar('Riesgo total',x.rk,200,'#f97316')}`}
+function cmpD(){const R=Object.keys(SC).map(k=>[k,calc(...SC[k])]);$('rd').innerHTML=[['Duración (sem)','dur',20,'#38bdf8'],['Avance proyectado %','av',100,'#22c55e'],['Riesgo total','rk',200,'#f97316']].map(m=>`<div class="text-xs font-bold mt-2">${m[0]}</div>${R.map(r=>bar(r[0],r[1][m[1]],m[2],m[3])).join('')}`).join('')}
+function saveD(){S.scen.push({n:$('sds').value,t:new Date().toLocaleTimeString('es-CO'),res:calc(...dv())});lg('Escenario guardado: '+$('sds').value);render()}
+/* INFORMES */
+const dl=(n,t)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=n;a.click()};
+function expR(){dl('registro_riesgos.csv','\ufeff'+[['ID','Descripción','Probabilidad','Impacto','Nivel','Clasificación','Responsable','Tratamiento','Estado','Residual'],...S.risks.map(r=>[r.id,r.n,r.p,r.i,lv(r),cls(lv(r)),r.r,r.t,r.s,r.rp*r.ri])].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n'));lg('Riesgos exportados a CSV/Excel');render()}
+function rep(t,h){LAST=`<h2>${t}</h2><p>Generado: ${new Date().toLocaleString('es-CO')} · Responsable: ${E(S.owner)} · Datos de demostración</p>`+h;lg('Informe generado: '+t);save();M(LAST+`<div class="flex gap-2 justify-end mt-3"><button class="btn b2" onclick="M()">Cerrar</button><button class="btn" onclick="prt()">Imprimir / guardar PDF</button></div>`,'max-w-3xl')}
+function prt(){const w=window.open('','_blank');if(!w)return alert('Permite las ventanas emergentes para imprimir');w.document.write('<html><head><title>Informe</title><style>body{font-family:sans-serif;padding:24px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:4px;font-size:12px}</style></head><body>'+LAST+'</body></html>');w.document.close();w.print()}
+const repEj=()=>rep('Informe ejecutivo',`<p>Avance real: <b>${avg()}%</b> (esperado ${avgPl()}%) · Riesgos: ${S.risks.length} (${S.risks.filter(r=>r.s=='Mitigado').length} mitigados)</p><h4>Riesgos prioritarios</h4>`+tbl(['ID','Riesgo','Nivel','Estado'],[...S.risks].sort((a,b)=>lv(b)-lv(a)).map(r=>[r.id,E(r.n),lv(r)+' '+cls(lv(r)),r.s]))+`<h4>Alertas</h4>`+(alerts().map(x=>`<div>⚠️ ${E(x)}</div>`).join('')||'Sin alertas'));
+const repCr=()=>rep('Cronograma (8 semanas)',tbl(['Actividad','Semanas','Responsable','Avance','Estado','Dependencias'],S.acts.map(a=>[`${a.id}. ${E(a.n)}`,`S${a.s}–S${a.e}`,E(a.r),a.p+'%',st(a),a.d.join(',')||'—'])));
+const repAv=()=>rep('Resumen de avance',`<p>Avance general ${avg()}% vs esperado ${avgPl()}% (semana ${S.cw}).</p>`+tbl(['Actividad','Esperado','Real','Estado'],S.acts.map(a=>[a.id+'. '+E(a.n),ex(a)+'%',a.p+'%',st(a)])));
+const repTr=()=>rep('Tratamientos aplicados',tbl(['ID','Riesgo','Tratamiento','Estado','Inicial','Residual'],S.risks.map(r=>[r.id,E(r.n),E(r.t),r.s,lv(r),r.rp*r.ri])));
+render();
+</script></body></html>
